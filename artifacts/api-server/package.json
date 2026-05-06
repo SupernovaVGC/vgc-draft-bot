@@ -7,7 +7,7 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
-    "deploy-commands": "pnpm run build && node --enable-source-maps ./dist/bot/deployCommands.mjs",
+    "deploy-commands": "pnpm run build && node --enable-source-maps ./dist/deployCommands.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
