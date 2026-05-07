@@ -23,7 +23,6 @@ export function getCurrentRound(draftPosition: number, playerCount: number): num
 /**
  * Finds the next absolute draft position (≥ startPosition) where an eligible
  * player (has budget left AND has not hit max picks) exists.
- * Returns null if no such position exists within the draft capacity.
  */
 export function findNextEligiblePosition(
   players: DraftPlayer[],
@@ -37,6 +36,26 @@ export function findNextEligiblePosition(
     if (player && player.budgetRemaining > 0 && player.picksCount < maxPicks) {
       return { position: pos, player };
     }
+  }
+  return null;
+}
+
+/**
+ * Finds the next absolute draft position (≥ fromPosition) where the given
+ * player appears in the snake draft order (regardless of eligibility).
+ * Used to calculate makeup pick deadlines.
+ */
+export function findPlayerNextPosition(
+  players: DraftPlayer[],
+  playerId: number,
+  fromPosition: number,
+  playerCount: number,
+  maxPicks: number,
+): number | null {
+  const maxPosition = playerCount * maxPicks;
+  for (let pos = fromPosition; pos < maxPosition; pos++) {
+    const p = getPlayerAtPosition(players, pos, playerCount);
+    if (p && p.id === playerId) return pos;
   }
   return null;
 }

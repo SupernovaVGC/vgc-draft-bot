@@ -10,6 +10,8 @@ export const leaguesTable = pgTable("leagues", {
   playerCount: integer("player_count").notNull(),
   playerBudget: integer("player_budget").notNull(),
   maxPicks: integer("max_picks").notNull(),
+  turnTimerSeconds: integer("turn_timer_seconds").notNull().default(0),
+  turnStartedAt: timestamp("turn_started_at"),
   currentDraftPosition: integer("current_draft_position").notNull().default(0),
   status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

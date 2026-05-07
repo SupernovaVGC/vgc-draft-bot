@@ -7,6 +7,7 @@ import {
 import { db } from "@workspace/db";
 import { leaguesTable, draftPlayersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
+import { advanceTurn } from "../draftEngine";
 
 const builder = new SlashCommandBuilder()
   .setName("league-create")
@@ -35,6 +36,15 @@ const builder = new SlashCommandBuilder()
       .setDescription("Maximum number of Pokemon picks per player")
       .setRequired(true)
       .setMinValue(1),
+  )
+  .addIntegerOption((opt) =>
+    opt
+      .setName("timer")
+      .setDescription(
+        "Seconds per turn (0 = no timer). Missed turns create makeup picks; misses halve the timer.",
+      )
+      .setRequired(false)
+      .setMinValue(0),
   )
   .addUserOption((opt) =>
     opt.setName("player1").setDescription("Player 1 in draft order").setRequired(true),
@@ -118,6 +128,7 @@ export const createLeagueCommand = {
     const playerCount = interaction.options.getInteger("player_count", true);
     const playerBudget = interaction.options.getInteger("player_budget", true);
     const maxPicks = interaction.options.getInteger("max_picks", true);
+    const turnTimerSeconds = interaction.options.getInteger("timer") ?? 0;
 
     const players: { id: string; username: string }[] = [];
     for (let i = 1; i <= 16; i++) {
@@ -170,6 +181,7 @@ export const createLeagueCommand = {
         playerCount,
         playerBudget,
         maxPicks,
+        turnTimerSeconds,
         currentDraftPosition: 0,
         status: "active",
       })
@@ -183,6 +195,7 @@ export const createLeagueCommand = {
         draftOrder: i,
         budgetRemaining: playerBudget,
         picksCount: 0,
+        timerHalvingCount: 0,
       });
     }
 
@@ -191,12 +204,17 @@ export const createLeagueCommand = {
       .reverse()
       .map((p, i) => `**${i + 1}.** <@${p.id}>`)
       .join("\n");
-    const firstPlayer = players[0];
+
+    const timerLine =
+      turnTimerSeconds > 0
+        ? `⏱️ **Turn timer:** ${turnTimerSeconds}s (missed turns create makeup picks; missed makeups halve the timer)`
+        : "⏱️ **Turn timer:** None";
 
     await interaction.editReply({
       content: [
         `## 🏆 ${leagueName}`,
         `**Budget:** ${playerBudget} per player  |  **Max Picks:** ${maxPicks}  |  **Players:** ${playerCount}`,
+        timerLine,
         "",
         "**Round 1 Draft Order:**",
         orderLines,
@@ -206,8 +224,10 @@ export const createLeagueCommand = {
         "",
         `*Round 3 returns to Round 1 order, and so on.*`,
         "",
-        `➡️ It's <@${firstPlayer.id}>'s turn! Use \`/pick round:1 pokemon:<name> cost:<amount>\` to make your first pick.`,
+        "Starting the draft now...",
       ].join("\n"),
     });
+
+    await advanceTurn(league.id, interaction.client);
   },
 };

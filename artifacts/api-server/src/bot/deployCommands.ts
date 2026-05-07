@@ -3,6 +3,11 @@ import { createLeagueCommand } from "./commands/createLeague";
 import { deleteLeagueCommand } from "./commands/deleteLeague";
 import { pickCommand } from "./commands/pick";
 import { viewDraftCommand } from "./commands/viewDraft";
+import { queuePickCommand } from "./commands/queuePick";
+import { viewQueueCommand } from "./commands/viewQueue";
+import { clearQueueCommand } from "./commands/clearQueue";
+import { makeupPickCommand } from "./commands/makeupPick";
+import { editPickCommand } from "./commands/editPick";
 
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
@@ -17,6 +22,11 @@ const commands = [
   deleteLeagueCommand.data.toJSON(),
   pickCommand.data.toJSON(),
   viewDraftCommand.data.toJSON(),
+  queuePickCommand.data.toJSON(),
+  viewQueueCommand.data.toJSON(),
+  clearQueueCommand.data.toJSON(),
+  makeupPickCommand.data.toJSON(),
+  editPickCommand.data.toJSON(),
 ];
 
 const rest = new REST().setToken(token);

@@ -8,6 +8,8 @@ import { leaguesTable, draftPlayersTable, draftPicksTable } from "@workspace/db"
 import type { DraftPlayer } from "@workspace/db";
 import { eq, and, asc } from "drizzle-orm";
 import { getPlayerAtPosition, getCurrentRound, findNextEligiblePosition } from "../utils";
+import { timerManager } from "../timerManager";
+import { advanceTurn } from "../draftEngine";
 
 export const pickCommand = {
   data: new SlashCommandBuilder()
@@ -47,6 +49,9 @@ export const pickCommand = {
       });
       return;
     }
+
+    // Cancel any running timer immediately — we have a real pick coming in
+    timerManager.clear(league.id);
 
     const players = await db
       .select()
@@ -106,6 +111,21 @@ export const pickCommand = {
       return;
     }
 
+    // Check if the Pokemon is already taken
+    const allPicks = await db
+      .select({ pokemonName: draftPicksTable.pokemonName })
+      .from(draftPicksTable)
+      .where(eq(draftPicksTable.leagueId, league.id));
+
+    const pickedSet = new Set(allPicks.map((p) => p.pokemonName.toLowerCase()));
+    if (pickedSet.has(pokemonName.toLowerCase())) {
+      await interaction.reply({
+        content: `**${pokemonName}** has already been drafted! Choose a different Pokemon.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     const updatedPlayer: DraftPlayer = {
       ...currentPlayer,
       budgetRemaining: currentPlayer.budgetRemaining - cost,
@@ -142,12 +162,12 @@ export const pickCommand = {
       if (next !== null) {
         await tx
           .update(leaguesTable)
-          .set({ currentDraftPosition: next.position })
+          .set({ currentDraftPosition: next.position, turnStartedAt: null })
           .where(eq(leaguesTable.id, league.id));
       } else {
         await tx
           .update(leaguesTable)
-          .set({ status: "ended" })
+          .set({ status: "ended", turnStartedAt: null })
           .where(eq(leaguesTable.id, league.id));
       }
     });
@@ -158,23 +178,17 @@ export const pickCommand = {
       `📍 Round **${currentRound}**`,
     ];
 
-    if (next !== null) {
-      const nextRound = getCurrentRound(next.position, league.playerCount);
-      if (nextRound > currentRound) {
-        lines.push("");
-        lines.push(`🔄 **Round ${nextRound} begins!**`);
-      }
-      lines.push("");
+    if (next === null) {
       lines.push(
-        `➡️ <@${next.player.discordUserId}> it's your turn! Use \`/pick round:${nextRound} pokemon:<name> cost:<amount>\``,
-      );
-    } else {
-      lines.push("");
-      lines.push(
+        "",
         "🏆 **The draft is complete!** All players have finished picking. Use `/view-draft` to see the full results.",
       );
     }
 
     await interaction.reply({ content: lines.join("\n") });
+
+    if (next !== null) {
+      await advanceTurn(league.id, interaction.client);
+    }
   },
 };

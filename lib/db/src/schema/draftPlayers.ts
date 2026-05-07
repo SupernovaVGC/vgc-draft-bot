@@ -13,6 +13,7 @@ export const draftPlayersTable = pgTable("draft_players", {
   draftOrder: integer("draft_order").notNull(),
   budgetRemaining: integer("budget_remaining").notNull(),
   picksCount: integer("picks_count").notNull().default(0),
+  timerHalvingCount: integer("timer_halving_count").notNull().default(0),
 });
 
 export const insertDraftPlayerSchema = createInsertSchema(draftPlayersTable).omit({ id: true });
