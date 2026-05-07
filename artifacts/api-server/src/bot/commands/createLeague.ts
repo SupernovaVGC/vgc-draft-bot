@@ -37,6 +37,12 @@ const builder = new SlashCommandBuilder()
       .setRequired(true)
       .setMinValue(1),
   )
+  .addUserOption((opt) =>
+    opt.setName("player1").setDescription("Player 1 in draft order").setRequired(true),
+  )
+  .addUserOption((opt) =>
+    opt.setName("player2").setDescription("Player 2 in draft order").setRequired(true),
+  )
   .addIntegerOption((opt) =>
     opt
       .setName("timer")
@@ -45,12 +51,6 @@ const builder = new SlashCommandBuilder()
       )
       .setRequired(false)
       .setMinValue(0),
-  )
-  .addUserOption((opt) =>
-    opt.setName("player1").setDescription("Player 1 in draft order").setRequired(true),
-  )
-  .addUserOption((opt) =>
-    opt.setName("player2").setDescription("Player 2 in draft order").setRequired(true),
   )
   .addUserOption((opt) =>
     opt.setName("player3").setDescription("Player 3 in draft order").setRequired(false),

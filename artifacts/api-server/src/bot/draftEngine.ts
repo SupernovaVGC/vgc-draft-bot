@@ -16,7 +16,6 @@ import {
   findPlayerNextPosition,
 } from "./utils";
 import { timerManager } from "./timerManager";
-import { logger } from "../lib/logger";
 
 export async function sendToChannel(
   client: Client,
@@ -29,7 +28,7 @@ export async function sendToChannel(
       await (channel as any).send(content);
     }
   } catch (err) {
-    logger.error({ err, channelId }, "Failed to send channel message");
+    console.error("Failed to send channel message", { err, channelId });
   }
 }
 
@@ -313,7 +312,7 @@ export async function advanceTurn(leagueId: number, client: Client): Promise<voi
 
       timerManager.set(league.id, timerMs, () => {
         autoSkip(leagueId, currentPlayer.id, client).catch((err) =>
-          logger.error({ err }, "autoSkip error"),
+          console.error("autoSkip error", err),
         );
       });
     }
@@ -342,7 +341,7 @@ export async function advanceTurn(leagueId: number, client: Client): Promise<voi
     return;
   }
 
-  logger.error({ leagueId }, "advanceTurn exceeded max iterations");
+  console.error("advanceTurn exceeded max iterations", { leagueId });
 }
 
 export async function autoSkip(
@@ -414,12 +413,12 @@ export async function restoreTimers(client: Client): Promise<void> {
 
     if (remaining <= 0) {
       autoSkip(league.id, currentPlayer.id, client).catch((err) =>
-        logger.error({ err }, "restoreTimers autoSkip error"),
+        console.error("restoreTimers autoSkip error", err),
       );
     } else {
       timerManager.set(league.id, remaining, () => {
         autoSkip(league.id, currentPlayer.id, client).catch((err) =>
-          logger.error({ err }, "restored timer autoSkip error"),
+          console.error("restored timer autoSkip error", err),
         );
       });
     }
