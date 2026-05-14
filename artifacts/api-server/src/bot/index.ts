@@ -33,13 +33,21 @@ export function startBot(): void {
 
   client.once(Events.ClientReady, (c) => {
     logger.info({ tag: c.user.tag }, "Discord bot ready");
-    restoreTimers(c).catch((err) => logger.error({ err }, "Failed to restore timers"));
   });
-  setInterval(() => {
-    db.execute(sql`SELECT 1`).catch((err) =>
-      logger.warn({ err }, "DB keepalive ping failed"),
-    );
-  }, 4 * 60 * 1000);
+    // Warm the DB connection first (Neon free tier cold-starts on first query),
+    // then restore timers and start the keepalive ping.
+    db.execute(sql`SELECT 1`)
+      .then(() => restoreTimers(c))
+      .catch((err) => logger.error({ err }, "Failed to restore timers"))
+      .finally(() => {
+        // Keep the connection warm every 4 minutes so Neon never suspends
+        // while the bot is running (free tier suspends after 5 min idle).
+        setInterval(() => {
+          db.execute(sql`SELECT 1`).catch((err) =>
+            logger.warn({ err }, "DB keepalive ping failed"),
+          );
+        }, 4 * 60 * 1000);
+      });
 
   client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
