@@ -155,6 +155,7 @@ export const createLeagueCommand = {
 
     const channelId = interaction.channelId;
     const guildId = interaction.guildId!;
+    await interaction.deferReply();
 
     const existing = await db
       .select()
@@ -163,14 +164,12 @@ export const createLeagueCommand = {
       .limit(1);
 
     if (existing.length > 0) {
-      await interaction.reply({
+      await interaction.editReply({
         content: `There is already an active league **${existing[0].leagueName}** in this channel. Use \`/league-delete\` to remove it first.`,
         flags: MessageFlags.Ephemeral,
       });
       return;
     }
-
-    await interaction.deferReply();
 
     const [league] = await db
       .insert(leaguesTable)

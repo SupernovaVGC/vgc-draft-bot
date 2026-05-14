@@ -1,4 +1,6 @@
 import { Client, GatewayIntentBits, Events } from "discord.js";
+import { sql } from "drizzle-orm";
+import { db } from "@workspace/db";
 import { logger } from "../lib/logger";
 import { restoreTimers } from "./draftEngine";
 import { createLeagueCommand } from "./commands/createLeague";
@@ -33,6 +35,11 @@ export function startBot(): void {
     logger.info({ tag: c.user.tag }, "Discord bot ready");
     restoreTimers(c).catch((err) => logger.error({ err }, "Failed to restore timers"));
   });
+  setInterval(() => {
+    db.execute(sql`SELECT 1`).catch((err) =>
+      logger.warn({ err }, "DB keepalive ping failed"),
+    );
+  }, 4 * 60 * 1000);
 
   client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
