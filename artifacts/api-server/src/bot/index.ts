@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events } from "discord.js";
+import { Client, GatewayIntentBits, Events, MessageFlags } from "discord.js";
 import { sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { logger } from "../lib/logger";
@@ -29,6 +29,22 @@ export function startBot(): void {
   const token = process.env.DISCORD_TOKEN;
   if (!token) throw new Error("DISCORD_TOKEN is required");
 
+  // Warm the DB before connecting to Discord so the first command never hits
+  // a Neon cold-start. Retry a few times in case Neon is slow to resume.
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      await db.execute(sql`SELECT 1`);
+      logger.info("DB connection ready");
+      break;
+    } catch (err) {
+      logger.warn({ err, attempt }, "DB warmup attempt failed — retrying in 3s");
+      if (attempt === 5) {
+        logger.error({ err }, "DB warmup failed after 5 attempts — proceeding anyway");
+      } else {
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
+  }
   const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
   client.once(Events.ClientReady, (c) => {
@@ -36,19 +52,15 @@ export function startBot(): void {
   });
     // Warm the DB connection first (Neon free tier cold-starts on first query),
     // then restore timers and start the keepalive ping.
-    db.execute(sql`SELECT 1`)
-      .then(() => restoreTimers(c))
-      .catch((err) => logger.error({ err }, "Failed to restore timers"))
-      .finally(() => {
-        // Keep the connection warm every 4 minutes so Neon never suspends
-        // while the bot is running (free tier suspends after 5 min idle).
-        setInterval(() => {
-          db.execute(sql`SELECT 1`).catch((err) =>
-            logger.warn({ err }, "DB keepalive ping failed"),
-          );
-        }, 4 * 60 * 1000);
-      });
-
+    restoreTimers(c).catch((err) => logger.error({ err }, "Failed to restore timers"));
+    // Keep the connection warm every 4 minutes so Neon never suspends
+    // while the bot is running (free tier suspends after 5 min idle).
+    setInterval(() => {
+      db.execute(sql`SELECT 1`).catch((err) =>
+        logger.warn({ err }, "DB keepalive ping failed"),
+      );
+    }, 4 * 60 * 1000);
+  });
   client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
     const command = commandMap.get(interaction.commandName);
@@ -60,11 +72,18 @@ export function startBot(): void {
       logger.error({ error, command: interaction.commandName }, "Command execution error");
       if (interaction.replied || interaction.deferred) {
         await interaction
-          .followUp({ content: "An error occurred while running this command.", ephemeral: true })
+          .followUp({
+            content: "An error occurred while running this command.",
+            flags: MessageFlags.Ephemeral,
+          })
           .catch(() => {});
       } else {
         await interaction
-          .reply({ content: "An error occurred while running this command.", ephemeral: true })
+
+          .reply({
+            content: "An error occurred while running this command.",
+            flags: MessageFlags.Ephemeral,
+          })
           .catch(() => {});
       }
     }
