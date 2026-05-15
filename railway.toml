@@ -1,0 +1,7 @@
+[build]
+installCommand = "pnpm install --no-frozen-lockfile"
+buildCommand = "pnpm --filter @workspace/api-server run build"
+
+[deploy]
+startCommand = "node --enable-source-maps artifacts/api-server/dist/index.mjs"
+restartPolicyType = "always"

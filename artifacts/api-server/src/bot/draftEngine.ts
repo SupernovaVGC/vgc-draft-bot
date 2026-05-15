@@ -392,35 +392,46 @@ export async function restoreTimers(client: Client): Promise<void> {
     .where(eq(leaguesTable.status, "active"));
 
   for (const league of activeLeagues) {
-    if (league.turnTimerSeconds === 0 || !league.turnStartedAt) continue;
+    try {
+      if (league.turnTimerSeconds === 0 || !league.turnStartedAt) continue;
 
-    const players = await db
-      .select()
-      .from(draftPlayersTable)
-      .where(eq(draftPlayersTable.leagueId, league.id))
-      .orderBy(asc(draftPlayersTable.draftOrder));
+      const players = await db
+        .select()
+        .from(draftPlayersTable)
+        .where(eq(draftPlayersTable.leagueId, league.id))
+        .orderBy(asc(draftPlayersTable.draftOrder));
 
-    const currentPlayer = getPlayerAtPosition(
-      players,
-      league.currentDraftPosition,
-      league.playerCount,
-    );
-    if (!currentPlayer) continue;
-
-    const elapsed = Date.now() - league.turnStartedAt.getTime();
-    const timerMs = effectiveTimerMs(league, currentPlayer);
-    const remaining = timerMs - elapsed;
-
-    if (remaining <= 0) {
-      autoSkip(league.id, currentPlayer.id, client).catch((err) =>
-        console.error("restoreTimers autoSkip error", err),
+      const currentPlayer = getPlayerAtPosition(
+        players,
+        league.currentDraftPosition,
+        league.playerCount,
       );
-    } else {
-      timerManager.set(league.id, remaining, () => {
+      if (!currentPlayer) continue;
+
+      // Drizzle may return timestamps as strings depending on driver version —
+      // normalise to Date before calling .getTime().
+      const turnStartedAt =
+        league.turnStartedAt instanceof Date
+          ? league.turnStartedAt
+          : new Date(league.turnStartedAt as unknown as string);
+
+      const elapsed = Date.now() - turnStartedAt.getTime();
+      const timerMs = effectiveTimerMs(league, currentPlayer);
+      const remaining = timerMs - elapsed;
+
+      if (remaining <= 0) {
         autoSkip(league.id, currentPlayer.id, client).catch((err) =>
-          console.error("restored timer autoSkip error", err),
+          console.error("restoreTimers autoSkip error", err),
         );
-      });
+      } else {
+        timerManager.set(league.id, remaining, () => {
+          autoSkip(league.id, currentPlayer.id, client).catch((err) =>
+            console.error("restored timer autoSkip error", err),
+          );
+        });
+      }
+    } catch (err) {
+      console.error(`restoreTimers: failed for league ${league.id}`, err);
     }
   }
 }
