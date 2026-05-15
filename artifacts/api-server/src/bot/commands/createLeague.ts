@@ -169,7 +169,9 @@ export const createLeagueCommand = {
       });
       return;
     }
+
     await interaction.deferReply();
+
     const [league] = await db
       .insert(leaguesTable)
       .values({

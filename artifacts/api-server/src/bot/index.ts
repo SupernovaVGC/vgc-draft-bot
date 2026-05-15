@@ -25,7 +25,7 @@ const commandMap = new Map([
   [editPickCommand.data.name, editPickCommand],
 ]);
 
-export function startBot(): void {
+export async function startBot(): Promise<void> {
   const token = process.env.DISCORD_TOKEN;
   if (!token) throw new Error("DISCORD_TOKEN is required");
 
@@ -45,14 +45,14 @@ export function startBot(): void {
       }
     }
   }
+
   const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
   client.once(Events.ClientReady, (c) => {
     logger.info({ tag: c.user.tag }, "Discord bot ready");
-  });
-    // Warm the DB connection first (Neon free tier cold-starts on first query),
-    // then restore timers and start the keepalive ping.
+
     restoreTimers(c).catch((err) => logger.error({ err }, "Failed to restore timers"));
+
     // Keep the connection warm every 4 minutes so Neon never suspends
     // while the bot is running (free tier suspends after 5 min idle).
     setInterval(() => {
@@ -61,6 +61,7 @@ export function startBot(): void {
       );
     }, 4 * 60 * 1000);
   });
+
   client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
     const command = commandMap.get(interaction.commandName);
@@ -79,7 +80,6 @@ export function startBot(): void {
           .catch(() => {});
       } else {
         await interaction
-
           .reply({
             content: "An error occurred while running this command.",
             flags: MessageFlags.Ephemeral,
